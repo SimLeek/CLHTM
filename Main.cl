@@ -27,7 +27,43 @@
 
 #define real float
 #define T float
+#include "cl_vector.h"
 
+
+_kernel void main(){
+    //todo: return different parts based on global kernel values.
+    TEMPLATE(vector, T) v;
+    TEMPLATE(vector_init, T)(&v);
+
+    TEMPLATE(vector_add, T)(&v, 1.0);
+    TEMPLATE(vector_add, T)(&v, 3.0);
+    TEMPLATE(vector_add, T)(&v, 2.0);
+    TEMPLATE(vector_add, T)(&v, 5.0);
+    TEMPLATE(vector_add, T)(&v, 4.0);
+
+    for (int i=0; i<TEMPLATE(vector_count, T)(&v); ++i){
+        TEMPLATE(vector_add, T)(
+                &v,
+                TEMPLATE(vector_get, T)(&v, i)
+        );
+    }
+
+    TEMPLATE(vector_delete, T)(&v, 1);
+    TEMPLATE(vector_delete, T)(&v, 3);
+
+    for (int i=0; i<TEMPLATE(vector_count, T)(&v); ++i){
+        TEMPLATE(vector_add, T)(
+                &v,
+                TEMPLATE(vector_get, T)(&v, i)
+        );
+    }
+
+    vector_free(&v);
+
+    return;
+}
+
+/*
 inline bool ASSERT(bool cond, const char* msg){
 #ifdef ASSERTIONS_ON
   if(!(cond)){
@@ -110,3 +146,4 @@ inline integer TEMPLATE(emod, integer)(integer x, integer m){
 //todo: create cl-side and cpu-cl version of IsIncluded function
 //todo: but first we need containers, like vectors or arrays
 //todo: we also need a pair struct
+ */

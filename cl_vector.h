@@ -23,12 +23,12 @@ typedef struct TEMPLATE(vector_, T){
 } TEMPLATE(vector, T);
 
 //then again... this looks terrible...
-void TEMPLATE(vector_init, TEMPLATE(vector, T))(TEMPLATE(vector, T)*);
-int TEMPLATE(vector_count, TEMPLATE(vector, T))(TEMPLATE(vector, T)*);
-void TEMPLATE(vector_add, TEMPLATE(vector, T))(TEMPLATE(vector, T)*, T*);
-void TEMPLATE(vector_set, TEMPLATE(vector, T))(TEMPLATE(vector, T)*, size_t, T*);
-T* TEMPLATE(vector_get, TEMPLATE(vector, T))(TEMPLATE(vector, T)*, size_t);
-void TEMPLATE(vector_delete, TEMPLATE(vector, T))(TEMPLATE(vector, T)*, size_t);
-void TEMPLATE(vector_free, TEMPLATE(vector, T))(TEMPLATE(vector, T)*);
+void TEMPLATE(vector_init, T)(TEMPLATE(vector, T)*);
+int TEMPLATE(vector_count, T)(TEMPLATE(vector, T)*);
+void TEMPLATE(vector_add, T)(TEMPLATE(vector, T)*, T*);
+void TEMPLATE(vector_set, T)(TEMPLATE(vector, T)*, size_t, T*);
+T* TEMPLATE(vector_get, T)(TEMPLATE(vector, T)*, size_t);
+void TEMPLATE(vector_delete, T)(TEMPLATE(vector, T)*, size_t);
+void TEMPLATE(vector_free, T)(TEMPLATE(vector, T)*);
 
 #endif

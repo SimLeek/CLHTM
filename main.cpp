@@ -53,7 +53,7 @@ int main() {
 
     //OPEN CL FILE AND COMPILE
     cl::Program::Sources sources;
-    std::string kernal_code = readFile("Array2D.cl");
+    std::string kernal_code = readFile("Main.cl");
 
     sources.push_back({kernal_code.c_str(), kernal_code.length()});
 
