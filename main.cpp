@@ -16,10 +16,6 @@ std::string readFile(std::string filename){
     return str;
 }
 
-void random_test(){
-
-}
-
 //now I can type std::cout<<vector! =P
 //todo: move to it's own file
 template<class T>
@@ -43,6 +39,78 @@ std::ostream& operator<<(std::ostream& os, cl::Device& cl_device){
     os<<cl_device.getInfo<CL_DEVICE_NAME>();
     return os;
 }
+
+class RandomProgram{
+public:
+    RandomProgram():
+            random_seed(5738495793284758564),
+            num_results(300000000),
+            random_results(new cl_uint[num_results])
+    {
+    }
+
+    void ready_buffer(cl::Context& context){
+        buffer_random_results=cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(cl_uint)*(num_results));
+    }
+
+    void ready_kernel(cl::Program& program){
+        random(program, "random");
+
+        random.setArg(0,random_seed);
+        random.setArg(1,buffer_random_results);
+
+
+    }
+
+    void ready_queue(cl::Device& device, cl::CommandQueue& queue){
+
+        //queue.enqueueWriteBuffer(buffer_random_seed, CL_TRUE, 0, sizeof(cl_ulong)*1, random_seed);
+        //queue.enqueueWriteBuffer(buffer_num_results, CL_TRUE, 0, sizeof(cl_uint)*1, num_results);
+
+        std::vector<size_t> work_item_sizes;
+        cl_device_info info = CL_DEVICE_MAX_WORK_ITEM_SIZES;
+        cl_int err = device.getInfo(info, &work_item_sizes);
+        std::cout<<"work item sizes 0:"<<work_item_sizes[0]<<"\n";
+        std::cout<<"work item sizes 1:"<<work_item_sizes[1]<<"\n";
+
+        size_t x_size = work_item_sizes[0];
+        size_t y_size = work_item_sizes[0];
+
+        info = CL_DEVICE_MAX_WORK_GROUP_SIZE;
+        size_t work_group_size;
+        err = device.getInfo(info, &work_group_size);
+        std::cout<<"work group size:"<<work_group_size<<"\n";
+
+        x_size = (sqrt(work_group_size)<x_size)?(size_t)sqrt(work_group_size):x_size;
+        y_size = (sqrt(work_group_size)<y_size)?(size_t)sqrt(work_group_size):y_size;
+
+
+        try {
+            queue.enqueueNDRangeKernel(random, cl::NullRange, cl::NDRange(num_results/work_group_size), cl::NDRange(work_group_size), 0, &e);
+        }catch(cl::Error e) {
+            std::cout<<"Error: "<<e.err()<<";"<<e.what()<<"\n";
+            return;
+        }
+    }
+
+    void read_output(cl::CommandQueue& queue){
+        queue.enqueueReadBuffer(buffer_random_results, CL_TRUE, 0, sizeof(cl_uint)*(num_results), random_results);
+
+        std::cout<<"Results: \n";
+        for(int i=0;i<num_results;i++){
+            std::cout<<random_results[i]<<"\n";
+        }
+    }
+
+private:
+    cl_ulong random_seed;
+    cl_uint num_results;
+    cl_uint * random_results;
+    cl::Buffer buffer_random_results;
+    cl::Kernel random;
+};
+
+
 
 int main() {
 
@@ -72,14 +140,8 @@ int main() {
     //READY ITEMS FOR SENDING TO CL
     /*cl::Buffer buffer_random_seed(context, CL_MEM_READ_WRITE, sizeof(cl_ulong));
     cl::Buffer buffer_num_results(context, CL_MEM_READ_WRITE, sizeof(cl_uint));*/
-
-
-    cl_ulong random_seed =5738495793284758564;
-    cl_uint num_results = 300000000;
-
-    cl_uint * random_results = new cl_uint[num_results];
-
-    cl::Buffer buffer_random_results(context, CL_MEM_READ_WRITE, sizeof(cl_uint)*(num_results));
+    RandomProgram prog;
+    prog.ready_buffer(context);
 
     //OPEN CL FILE AND COMPILE
     cl::Program::Sources sources;
@@ -104,51 +166,18 @@ int main() {
     //CL COMMAND QUEUE
     cl::CommandQueue queue(context, device, NULL, NULL);
 
-    //queue.enqueueWriteBuffer(buffer_random_seed, CL_TRUE, 0, sizeof(cl_ulong)*1, random_seed);
-    //queue.enqueueWriteBuffer(buffer_num_results, CL_TRUE, 0, sizeof(cl_uint)*1, num_results);
-
-    cl::Kernel random(program, "random");
-
-    random.setArg(0,random_seed);
-    random.setArg(1,buffer_random_results);
+    prog.ready_kernel(program);
 
     queue.finish();
 
     //RUN
     cl::Event e;
 
-    std::vector<size_t> work_item_sizes;
-    cl_device_info info = CL_DEVICE_MAX_WORK_ITEM_SIZES;
-    cl_int err = device.getInfo(info, &work_item_sizes);
-    std::cout<<"work item sizes 0:"<<work_item_sizes[0]<<"\n";
-    std::cout<<"work item sizes 1:"<<work_item_sizes[1]<<"\n";
-
-    size_t x_size = work_item_sizes[0];
-    size_t y_size = work_item_sizes[0];
-
-    info = CL_DEVICE_MAX_WORK_GROUP_SIZE;
-    size_t work_group_size;
-    err = device.getInfo(info, &work_group_size);
-    std::cout<<"work group size:"<<work_group_size<<"\n";
-
-    x_size = (sqrt(work_group_size)<x_size)?(size_t)sqrt(work_group_size):x_size;
-    y_size = (sqrt(work_group_size)<y_size)?(size_t)sqrt(work_group_size):y_size;
-
-
-    try {
-        queue.enqueueNDRangeKernel(random, cl::NullRange, cl::NDRange(num_results/work_group_size), cl::NDRange(work_group_size), 0, &e);
-    }catch(cl::Error e) {
-        std::cout<<"Error: "<<e.err()<<";"<<e.what()<<"\n";
-        return 1;
-    }
+    prog.ready_queue(device, queue);
 
     e.wait();
 
-    queue.enqueueReadBuffer(buffer_random_results, CL_TRUE, 0, sizeof(cl_uint)*(num_results), random_results);
+    prog.read_output(queue);
 
-    std::cout<<"Results: \n";
-    for(int i=0;i<num_results;i++){
-        std::cout<<random_results[i]<<"\n";
-    }
     return 0;
 }
