@@ -16,12 +16,41 @@ std::string readFile(std::string filename){
     return str;
 }
 
+void random_test(){
+
+}
+
+//now I can type std::cout<<vector! =P
+//todo: move to it's own file
+template<class T>
+std::ostream& operator<<(std::ostream& os, std::vector<T>& v){
+    std::vector<T>::iterator it;
+    os<<"[ ";
+    for(it=v.begin(); it!=v.end(); ++it){
+        os << " " << (*it) << ((++it)!=v.end())?",":"";
+        --it;
+    }
+    os << "]";
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, cl::Platform& cl_platform){
+    os<<cl_platform.getInfo<CL_PLATFORM_NAME>();
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, cl::Device& cl_device){
+    os<<cl_device.getInfo<CL_DEVICE_NAME>();
+    return os;
+}
+
 int main() {
 
     //CREATE OPENCL CONTEXT
     std::vector<cl::Platform> platforms;
 
     cl::Platform::get(&platforms);
+    std::cout<<"Platforms: "<<platforms;
 
     if(platforms.size() ==0){
         std::cout<<"No OpenCL platforms found.\n";
@@ -31,6 +60,7 @@ int main() {
     std::vector<cl::Device> devices;
 
     platforms[0].getDevices(CL_DEVICE_TYPE_ALL, &devices);
+    std::cout<<"Devices: "<<devices;
 
     cl::Device device = devices[0];
 

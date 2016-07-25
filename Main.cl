@@ -29,36 +29,61 @@
 #define T float
 #include "cl_vector.h"
 
+int test_iterator=0;
+//todo: set only in debug mode
+const char* test(bool cond, const char* msg, size_t id){
+    if(test_iterator==id && !cond){
+        test_iterator++;
+        return msg;
+    }
+    test_iterator++;
+    return NULL;
+}
 
-_kernel void main(){
-    //todo: return different parts based on global kernel values.
+_kernel void main(__global char* msg){
+    size_t globalID = get_global_id(0)*get_local_id(0)+get_local_id(0);
+
     TEMPLATE(vector, T) v;
-    TEMPLATE(vector_init, T)(&v);
+    TEMPLATE(vector_init, T)(v);
 
-    TEMPLATE(vector_add, T)(&v, 1.0);
-    TEMPLATE(vector_add, T)(&v, 3.0);
-    TEMPLATE(vector_add, T)(&v, 2.0);
-    TEMPLATE(vector_add, T)(&v, 5.0);
-    TEMPLATE(vector_add, T)(&v, 4.0);
+    TEMPLATE(vector_add, T)(v, 1.0);
+    TEMPLATE(vector_add, T)(v, 2.0);
+    TEMPLATE(vector_add, T)(v, 3.0);
+    TEMPLATE(vector_add, T)(v, 4.0);
+    TEMPLATE(vector_add, T)(v, 5.0);
 
-    for (int i=0; i<TEMPLATE(vector_count, T)(&v); ++i){
-        TEMPLATE(vector_add, T)(
-                &v,
-                TEMPLATE(vector_get, T)(&v, i)
+    //todo: create concat function to add in what the count actually is
+    test(
+            TEMPLATE(vector_count, T)(v)==5,
+            "vector count is wrong",
+            globalID
+    );
+    for (int i=0; i<TEMPLATE(vector_count, T)(v); ++i){
+        test(
+                TEMPLATE(vector_get, T)(v, i)==(float)i,
+                "vector index has wrong value",
+                globalID
         );
     }
 
-    TEMPLATE(vector_delete, T)(&v, 1);
-    TEMPLATE(vector_delete, T)(&v, 3);
+    TEMPLATE(vector_delete, T)(v, 1);
+    TEMPLATE(vector_delete, T)(v, 3);
 
-    for (int i=0; i<TEMPLATE(vector_count, T)(&v); ++i){
-        TEMPLATE(vector_add, T)(
-                &v,
-                TEMPLATE(vector_get, T)(&v, i)
+    test(
+            TEMPLATE(vector_count, T)(v)==3,
+            "vector count is wrong",
+            globalID
+    );
+
+    for (int i=0; i<TEMPLATE(vector_count, T)(v); ++i){
+        test(
+                TEMPLATE(vector_get, T)(v, i)==(float)(2*i+1),
+                "vector index has wrong value",
+                globalID
         );
     }
 
-    vector_free(&v);
+    vector_free(v);//no way to test this that I know of
 
     return;
 }
