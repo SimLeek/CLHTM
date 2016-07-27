@@ -112,6 +112,77 @@ private:
 
 
 
+
+
+
+
+class VectorTestProgram{
+public:
+    VectorTestProgram():
+            max_tests(20),
+            max_message_size(100),
+            test_results(new cl_char[max_tests][max_message_size])
+    {
+    }
+
+    void ready_buffer(cl::Context& context){
+        buffer_test_results=cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(cl_char)*(max_tests)*(max_message_size));
+    }
+
+    void ready_kernel(cl::Program& program){
+        kernel=cl::Kernel(program, "vector_test");
+
+        kernel.setArg(1,buffer_test_results);
+    }
+
+    void ready_queue(cl::Device& device, cl::CommandQueue& queue, cl::Event& e){
+
+        //queue.enqueueWriteBuffer(buffer_random_seed, CL_TRUE, 0, sizeof(cl_ulong)*1, random_seed);
+        //queue.enqueueWriteBuffer(buffer_num_results, CL_TRUE, 0, sizeof(cl_uint)*1, num_results);
+
+        std::vector<size_t> work_item_sizes;
+        cl_device_info info = CL_DEVICE_MAX_WORK_ITEM_SIZES;
+        cl_int err = device.getInfo(info, &work_item_sizes);
+        std::cout<<"work item sizes 0:"<<work_item_sizes[0]<<"\n";
+        std::cout<<"work item sizes 1:"<<work_item_sizes[1]<<"\n";
+
+        size_t x_size = work_item_sizes[0];
+        size_t y_size = work_item_sizes[0];
+
+        info = CL_DEVICE_MAX_WORK_GROUP_SIZE;
+        size_t work_group_size;
+        err = device.getInfo(info, &work_group_size);
+        std::cout<<"work group size:"<<work_group_size<<"\n";
+
+        x_size = (sqrt(work_group_size)<x_size)?(size_t)sqrt(work_group_size):x_size;
+        y_size = (sqrt(work_group_size)<y_size)?(size_t)sqrt(work_group_size):y_size;
+
+
+        try {
+            queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(max_tests/work_group_size), cl::NDRange(work_group_size), 0, &e);
+        }catch(cl::Error e) {
+            std::cout<<"Error: "<<e.err()<<";"<<e.what()<<"\n";
+            return;
+        }
+    }
+
+    void read_output(cl::CommandQueue& queue){
+        queue.enqueueReadBuffer(buffer_test_results, CL_TRUE, 0, sizeof(cl_char)*(max_tests)*(max_message_size), test_results);
+
+        std::cout<<"Results: \n";
+        for(int i=0;i<max_tests;i++){
+            std::cout<<test_results[i]<<"\n";
+        }
+    }
+
+private:
+    cl_uint max_tests;
+    cl_uint max_message_size;
+    cl_char * test_results;
+    cl::Buffer buffer_test_results;
+    cl::Kernel kernel;
+};
+
 int main() {
 
     //CREATE OPENCL CONTEXT
@@ -140,7 +211,7 @@ int main() {
     //READY ITEMS FOR SENDING TO CL
     /*cl::Buffer buffer_random_seed(context, CL_MEM_READ_WRITE, sizeof(cl_ulong));
     cl::Buffer buffer_num_results(context, CL_MEM_READ_WRITE, sizeof(cl_uint));*/
-    RandomProgram prog;
+    VectorTestProgram prog;
     prog.ready_buffer(context);
 
     //OPEN CL FILE AND COMPILE
@@ -173,7 +244,7 @@ int main() {
     //RUN
     cl::Event e;
 
-    prog.ready_queue(device, queue);
+    prog.ready_queue(device, queue, e);
 
     e.wait();
 

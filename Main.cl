@@ -40,7 +40,7 @@ const char* test(bool cond, const char* msg, size_t id){
     return NULL;
 }
 
-_kernel void main(__global char* msg){
+_kernel void vector_test(__global char* msg){
     size_t globalID = get_global_id(0)*get_local_id(0)+get_local_id(0);
 
     TEMPLATE(vector, T) v;
