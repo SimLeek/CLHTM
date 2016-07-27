@@ -20,7 +20,7 @@ std::string readFile(std::string filename){
 //todo: move to it's own file
 template<class T>
 std::ostream& operator<<(std::ostream& os, std::vector<T>& v){
-    std::vector<T>::iterator it;
+    typename std::vector<T>::iterator it;
     os<<"[ ";
     for(it=v.begin(); it!=v.end(); ++it){
         os << " " << (*it) << ((++it)!=v.end())?",":"";
@@ -54,7 +54,7 @@ public:
     }
 
     void ready_kernel(cl::Program& program){
-        random(program, "random");
+        random=cl::Kernel(program, "random");
 
         random.setArg(0,random_seed);
         random.setArg(1,buffer_random_results);
@@ -62,7 +62,7 @@ public:
 
     }
 
-    void ready_queue(cl::Device& device, cl::CommandQueue& queue){
+    void ready_queue(cl::Device& device, cl::CommandQueue& queue, cl::Event& e){
 
         //queue.enqueueWriteBuffer(buffer_random_seed, CL_TRUE, 0, sizeof(cl_ulong)*1, random_seed);
         //queue.enqueueWriteBuffer(buffer_num_results, CL_TRUE, 0, sizeof(cl_uint)*1, num_results);
@@ -121,8 +121,11 @@ public:
     VectorTestProgram():
             max_tests(20),
             max_message_size(100),
-            test_results(new cl_char[max_tests][max_message_size])
+            test_results(new cl_char*[max_tests])
     {
+        for(int i=0; i<max_tests;++i){
+            test_results[i]= new cl_char[max_message_size];
+        }
     }
 
     void ready_buffer(cl::Context& context){
@@ -132,7 +135,7 @@ public:
     void ready_kernel(cl::Program& program){
         kernel=cl::Kernel(program, "vector_test");
 
-        kernel.setArg(1,buffer_test_results);
+        kernel.setArg(0,buffer_test_results);
     }
 
     void ready_queue(cl::Device& device, cl::CommandQueue& queue, cl::Event& e){
@@ -178,7 +181,7 @@ public:
 private:
     cl_uint max_tests;
     cl_uint max_message_size;
-    cl_char * test_results;
+    cl_char ** test_results;
     cl::Buffer buffer_test_results;
     cl::Kernel kernel;
 };
