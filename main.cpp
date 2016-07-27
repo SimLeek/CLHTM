@@ -23,8 +23,10 @@ std::ostream& operator<<(std::ostream& os, std::vector<T>& v){
     typename std::vector<T>::iterator it;
     os<<"[ ";
     for(it=v.begin(); it!=v.end(); ++it){
-        os << " " << (*it) << ((++it)!=v.end())?",":"";
-        --it;
+        if(it!=v.begin()){
+            os<<",";
+        }
+        os << " " << (*it);
     }
     os << "]";
     return os;
@@ -192,7 +194,7 @@ int main() {
     std::vector<cl::Platform> platforms;
 
     cl::Platform::get(&platforms);
-    std::cout<<"Platforms: "<<platforms;
+    std::cout<<"Platforms: "<<platforms<<"\n";
 
     if(platforms.size() ==0){
         std::cout<<"No OpenCL platforms found.\n";
@@ -202,7 +204,7 @@ int main() {
     std::vector<cl::Device> devices;
 
     platforms[0].getDevices(CL_DEVICE_TYPE_ALL, &devices);
-    std::cout<<"Devices: "<<devices;
+    std::cout<<"Devices: "<<devices<<"\n";
 
     cl::Device device = devices[0];
 
