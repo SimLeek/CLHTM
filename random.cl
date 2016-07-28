@@ -2,14 +2,14 @@
 
 
 //return via global pointer
-__kernel integer TEMPLATE(random, integer)(/*__local const ulong* random_seed*/
+/*__kernel integer TEMPLATE(random, integer)(/*__local const ulong* random_seed*//*
         integer random_seed,
         __global integer* random_results){
     size_t globalID = get_global_id(0)*get_local_id(0)+get_local_id(0);
     integer seed = random_seed + globalID;
     seed = (seed * 0x5DEECE66DL + 0xBL) & ((1L << 48) - 1);
     random_results[globalID] = seed >> 16;
-}
+}*/
 
 //gpugems3/gpugems3_ch37
 //S1, S2, S3 are all constants

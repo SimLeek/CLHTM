@@ -6,7 +6,7 @@
 #define CAT(X,Y) X##_##Y
 #define TEMPLATE(X,Y) CAT(X,Y)
 
-#define CAT(X,Y,Z) X##_##Y##_##Z   //concatenate words
-#define TEMPLATE(X,Y,Z) CAT(X,Y,Z)
+/*#define CAT(X,Y,Z) X##_##Y##_##Z   //concatenate words
+#define TEMPLATE(X,Y,Z) CAT(X,Y,Z)*/
 
 #endif
