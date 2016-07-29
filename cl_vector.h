@@ -13,6 +13,7 @@
 
 //I could define function pointers in here, but I'm not sure it's actually a good idea
 // via: http://stackoverflow.com/a/12642862/782170
+// and: http://eddmann.com/posts/implementing-a-dynamic-vector-array-in-c/
 
 //right now I'm happy with just heaping everything onto the preprocessor with the templates
 typedef struct TEMPLATE(vector_, T){
