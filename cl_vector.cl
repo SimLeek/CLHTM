@@ -16,19 +16,19 @@ inline void throw(const char* msg){last_error = msg;}
 #define xstr(s) str(s)
 #define str(s) #s
 
-void TEMPLATE(vector_init, TEMPLATE(vector, T))(TEMPLATE(vector, T)& v){
+void TEMPLATE(vector_init, TEMPLATE(vector, T))(TEMPLATE(vector, T)* v){
     v.data = NULL;
     v.size = 0;
     v.count= 0;
 }
 
-size_t TEMPLATE(vector_count, TEMPLATE(vector, T))(TEMPLATE(vector, T)& v){
+size_t TEMPLATE(vector_count, TEMPLATE(vector, T))(TEMPLATE(vector, T)* v){
     return v.count;
 }
-void TEMPLATE(vector_add, TEMPLATE(vector, T))(TEMPLATE(vector, T)& v, T& x){
+void TEMPLATE(vector_add, TEMPLATE(vector, T))(TEMPLATE(vector, T)* v, T x){
     if(v.size == 0){
         v.size = 2;//todo: check for speed of different initial settings
-        v.data = malloc(sizeof(T*) * v.size);
+        v.data = malloc(sizeof(T) * v.size);
         //todo: check if not setting zero affects anything
         //memset(v->data, '\0', sizeof(T*) * v->size);
     }
@@ -37,11 +37,11 @@ void TEMPLATE(vector_add, TEMPLATE(vector, T))(TEMPLATE(vector, T)& v, T& x){
         v.data = realloc(v.data, sizeof(T) * v.size);
     }
 
-    v.data[v.count] = e;
+    v.data[v.count] = x;
     v.count++;
 }
 
-void TEMPLATE(vector_set, TEMPLATE(vector, T))(TEMPLATE(vector, T)& v, size_t i, T& x){
+void TEMPLATE(vector_set, TEMPLATE(vector, T))(TEMPLATE(vector, T)* v, size_t i, T x){
     if(i >= v.count){
         //todo: check whether I can just use perror with preprocessor setting to nothing
         //todo: check errno or something
@@ -53,7 +53,7 @@ void TEMPLATE(vector_set, TEMPLATE(vector, T))(TEMPLATE(vector, T)& v, size_t i,
     v.data[i] = x;
 }
 
-T& TEMPLATE(vector_get, TEMPLATE(vector, T))(TEMPLATE(vector, T)& v, size_t i){
+T TEMPLATE(vector_get, TEMPLATE(vector, T))(TEMPLATE(vector, T)* v, size_t i){
     if(i >= v.count){
         throw("Runtime Error [" xstr(TEMPLATE(vector_get, TEMPLATE(vector, T))) "]: vector index out of range.")
         return NULL;
@@ -61,7 +61,7 @@ T& TEMPLATE(vector_get, TEMPLATE(vector, T))(TEMPLATE(vector, T)& v, size_t i){
     return v.data[i];
 }
 
-void TEMPLATE(vector_delete, TEMPLATE(vector, T))(TEMPLATE(vector, T)& v, size_t _i){
+void TEMPLATE(vector_delete, TEMPLATE(vector, T))(TEMPLATE(vector, T)* v, size_t _i){
     if(_i >= v.count){
         throw("Runtime Error [" xstr(TEMPLATE(vector_delete, TEMPLATE(vector, T))) "]: vector index out of range.")
         return;
@@ -73,6 +73,6 @@ void TEMPLATE(vector_delete, TEMPLATE(vector, T))(TEMPLATE(vector, T)& v, size_t
 
     v.count--;
 }
-void TEMPLATE(vector_free, TEMPLATE(vector, T))(TEMPLATE(vector, T)& v){
+void TEMPLATE(vector_free, TEMPLATE(vector, T))(TEMPLATE(vector, T)* v){
     free(v.data);
 }
