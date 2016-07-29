@@ -5,4 +5,4 @@ opencl implementation of this: https://github.com/numenta/nupic.core
 
 ##todo
 
-figure out liscence stuff
+cite sources used so far.
