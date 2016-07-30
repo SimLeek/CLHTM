@@ -251,7 +251,7 @@ public:
         try {
             queue.enqueueNDRangeKernel(random, cl::NullRange, cl::NDRange(num_results/work_group_size), cl::NDRange(work_group_size), 0, &e);
         }catch(cl::Error e) {
-            std::cout<<"Error: "<<e.err()<<";"<<e.what()<<"\n";
+            std::cout<<"Error: "<<cl::getErrorString(e.err())<<";"<<e.what()<<"\n";
             return;
         }
     }
@@ -284,7 +284,7 @@ public:
     VectorTestProgram():
             max_tests(20),
             max_message_size(100),
-            test_results(new cl_char[max_tests*max_message_size])
+            test_results(new cl_char[max_message_size])
     {
 
     }
@@ -295,7 +295,7 @@ public:
         try{
             verbose("Creating buffer...\n");
             cl_int err;
-            buffer_test_results=cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(cl_char)*(max_tests)*(max_message_size));
+            buffer_test_results=cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(cl_char)*(max_message_size));
             /*if(err!=CL_SUCCESS){
                 std::cout<<"Error buffering: \n"<< program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device, &err) <<"\n";
             }*/
@@ -332,18 +332,19 @@ public:
 
         x_size = (sqrt(work_group_size)<x_size)?(size_t)sqrt(work_group_size):x_size;
         y_size = (sqrt(work_group_size)<y_size)?(size_t)sqrt(work_group_size):y_size;
+        work_group_size= 32;
 
 
         try {
             queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(max_tests/work_group_size), cl::NDRange(work_group_size), 0, &e);
         }catch(cl::Error e) {
-            std::cout<<"Error: "<<e.err()<<";"<<e.what()<<"\n";
+            std::cout<<"Error: "<<cl::getErrorString(e.err())<<";"<<e.what()<<"\n";
             return;
         }
     }
 
     void read_output(cl::CommandQueue& queue){
-        queue.enqueueReadBuffer(buffer_test_results, CL_TRUE, 0, sizeof(cl_char)*(max_tests)*(max_message_size), test_results);
+        queue.enqueueReadBuffer(buffer_test_results, CL_TRUE, 0, sizeof(cl_char)*(max_message_size), test_results);
 
         std::cout<<"Results: \n";
         for(int i=0;i<max_tests;i++){
