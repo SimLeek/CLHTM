@@ -1,180 +1,213 @@
-/* ---------------------------------------------------------------------
- * Numenta Platform for Intelligent Computing (NuPIC)
- * Copyright (C) 2013, Numenta, Inc.  Unless you have an agreement
- * with Numenta, Inc., for a separate license for this software code, the
- * following terms and conditions apply:
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero Public License version 3 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU Affero Public License for more details.
- *
- * You should have received a copy of the GNU Affero Public License
- * along with this program.  If not, see http://www.gnu.org/licenses.
- *
- * http://numenta.org/licenses/
- * ---------------------------------------------------------------------
- */
 
-#include "templates.h"
-
-#define integer uint
-#include "random.cl"
-
-#define real float
-#define T float
-#include "cl_vector.h"
+#include <boost/preprocessor/cat.hpp>
 
 
-//todo: set only in debug mode
-__constant char* test(bool cond, __constant char * msg, size_t id, size_t test_iterator){
-    if(test_iterator==id && !cond){
-        test_iterator++;
-        return msg;
+
+void kernel simple_add(global const int* A, global const int* B, global int* C)
+{
+C[get_global_id(0)] = A[get_global_id(0)] + B[get_global_id(0)];
+}
+
+//highly divisible numbers (not divisible by 2) for 'randomly' accessing array after collisions.
+#define hash_mask_2 1 //2^1
+#define hash_mask_4 1 //2^2
+#define hash_mask_8 3 //2^3
+#define hash_mask_16 9 //2^4
+#define hash_mask_32 15 //2^5
+#define hash_mask_64 45 //2^6
+#define hash_mask_128 105 //2^7
+#define hash_mask_256 225 //2^8
+#define hash_mask_512 315 //2^9
+#define hash_mask_1024 735 //2^10
+#define hash_mask_2048 1575 //2^11
+#define hash_mask_4096 3465 //2^12
+#define hash_mask_8192 5775 //2^13
+#define hash_mask_16384 15015 //2^14
+#define hash_mask_32768 24255 //2^15
+#define hash_mask_65536 45045 //2^16
+#define hash_mask_131072 105105 //2^17
+#define hash_mask_262144 255255 //2^18
+#define hash_mask_524288 315315 //2^19
+#define hash_mask_1048576 765765 //2^20
+#define hash_mask_2097152 1786785 //2^21
+#define hash_mask_4194304 3318315 //2^22
+#define hash_mask_8388608 5870865 //2^23
+#define hash_mask_16777216 13018005 //2^24
+#define hash_mask_33554432 29354325 //2^25
+#define hash_mask_67108864 4109605 //2^26
+#define hash_mask_134217728 123288165 //2^27
+#define hash_mask_268435456 158513355 //2^28
+#define hash_mask_536870912 475540065 //2^29
+#define hash_mask_1073741824 792566775 //2^30
+#define hash_mask_2147483648 1743646905 //2^31
+#define hash_mask_4294967296 3645807165 //2^32
+
+#define hash_size 65536
+
+//todo: allow hash sizes for other sizes with at least 75% 0's and error if not 75% 0's
+
+#define hash_type int
+
+#define BOOST_PP_3CAT(a,b,c) BOOST_PP_CAT(a,BOOST_PP_CAT(b,c))
+
+//todo: use boost_pp_div to define a log_2 function and use that to allow boost_pp_less equal to compare values and choose smallest necessary size type
+
+#define hash_size_type size_t
+
+struct BOOST_PP_3CAT(HashValue,hash_size,hash_type) {
+    size_t key1;
+    size_t key2;
+    hash_size_type val;
+};
+
+typedef BOOST_PP_3CAT(HashTable,hash_size,hash_type)
+        *BOOST_PP_3CAT(HashValue,hash_size,hash_type);
+//todo: test whether making HashTable an array of pointers speeds things up
+//todo: if so, define differently, so local versions take advantage of that only
+
+//template stuff here
+inline void BOOST_PP_3CAT(make_hash_table,hash_size, hash_type)
+        (BOOST_PP_3CAT(HashTable,hash_size,hash_type) h){
+    h = malloc(hash_size*sizeof(*h));
+    memset(&h[0], 0, sizeof(h));
+}
+
+inline void  BOOST_PP_3CAT(free_hash_table,hash_size, hash_type)
+        (BOOST_PP_3CAT(HashTable,hash_size,hash_type) h){
+    free(h);
+}
+
+inline size_t BOOST_PP_3CAT(hash_find_index,hash_size, hash_type)
+        (BOOST_PP_3CAT(HashTable,hash_size,hash_type) h,
+         BOOST_PP_3CAT(HashValue,hash_size,hash_type)* v){
+    hash_size_type size_masker = (hash_size-1);
+    hash_size_type i= (v->key1 ^ v->key2) & size_masker; //a xor b
+    while(h[i]!=0){
+        hash_size_type n = (i >> 1) ^ hash_mask_hash_size;
+        i=(i+n) & size_masker;
     }
-    test_iterator++;
-    return 0;//NULL isn't defined for some reason
+    return i;
 }
 
-__kernel void vector_test(__global char* msg){
-    size_t globalID = get_global_id(0)*get_local_id(0)+get_local_id(0);
-
-    int test_iterator=0;
-
-    TEMPLATE(vector, T) v;
-    TEMPLATE(vector_init, T)(&v);
-
-    TEMPLATE(vector_add, T)(&v, 1.0f);
-    TEMPLATE(vector_add, T)(&v, 2.0f);
-    TEMPLATE(vector_add, T)(&v, 3.0f);
-    TEMPLATE(vector_add, T)(&v, 4.0f);
-    TEMPLATE(vector_add, T)(&v, 5.0f);
-
-    //todo: create concat function to add in what the count actually is
-    test(
-            TEMPLATE(vector_count, T)(&v)==5,
-            "vector count is wrong",
-            globalID,
-            test_iterator
-    );
-    for (int i=0; i<TEMPLATE(vector_count, T)(&v); ++i){
-        test(
-                TEMPLATE(vector_get, T)(&v, i)==(float)i,
-                "vector index has wrong value",
-                globalID,
-                test_iterator
-        );
-    }
-
-    TEMPLATE(vector_delete, T)(&v, 1);
-    TEMPLATE(vector_delete, T)(&v, 3);
-
-    test(
-            TEMPLATE(vector_count, T)(&v)==3,
-            "vector count is wrong",
-            globalID,
-            test_iterator
-    );
-
-    for (int i=0; i<TEMPLATE(vector_count, T)(&v); ++i){
-        test(
-                TEMPLATE(vector_get, T)(&v, i)==(float)(2*i+1),
-                "vector index has wrong value",
-                globalID,
-                test_iterator
-        );
-    }
-
-    TEMPLATE(vector_free, T)(&v);//no way to test this that I know of
-
-    return;
+void  BOOST_PP_3CAT(insert_hash_table,hash_size, hash_type)
+        (BOOST_PP_3CAT(HashTable,hash_size,hash_type) h,
+         BOOST_PP_3CAT(HashValue,hash_size,hash_type)* v){
+    hash_size_type i = BOOST_PP_3CAT(hash_find_index,hash_size, hash_type)(h,v);
+    h[i] = &v;
 }
 
-/*
-inline bool ASSERT(bool cond, const char* msg){
-#ifdef ASSERTIONS_ON
-  if(!(cond)){
-    //todo: create a vector class to store the output before sending it back
-    //vec << msg
-    return false;
-  }
-#endif
-  return true;
-}
-// thx: http://stackoverflow.com/a/2218295/782170
-void TEMPLATE(ASSERT_VALID_RANGE, It)(It begin, It end, const char* msg){
-    const char* descriptor = "Invalid iterators: ";
-    char* message_with_descriptor;
-    message_with_descriptor = malloc(strlen(descriptor)+strlen(msg));
-    strcpy(message_with_descriptor, descriptor);
-    strcat(message_with_descriptor, msg);
-    ASSERT(begin <= end, message_with_descriptor);
-    //todo: free(message_with_descriptor) eventually
+void  BOOST_PP_3CAT(remove_hash_table,hash_size, hash_type)
+        (BOOST_PP_3CAT(HashTable,hash_size,hash_type) h,
+         BOOST_PP_3CAT(HashValue,hash_size,hash_type)* v){
+    hash_size_type i = BOOST_PP_3CAT(hash_find_index,hash_size, hash_type)(h,v);
+    h[i] = 0;
 }
 
-static const real epsilon = real(1e-6);
-
-inline bool TEMPLATE(strictlyNegative, T)(const T& a){
-    return a< -epsilon;
+BOOST_PP_3CAT(HashValue,hash_size,hash_type)*
+    BOOST_PP_3CAT(get_hash_table,hash_size, hash_type)
+        (BOOST_PP_3CAT(HashTable,hash_size,hash_type) h,
+         BOOST_PP_3CAT(HashValue,hash_size,hash_type)* v){
+    hash_size_type i = BOOST_PP_3CAT(hash_find_index,hash_size, hash_type)(h,v);
+    return &h[i];
 }
 
-inline bool TEMPLATE(strictlyPositive, T)(const T& a){
-    return a> epsilon;
+BOOST_PP_3CAT(HashValue,hash_size,hash_type)*
+BOOST_PP_3CAT(pop_hash_table,hash_size, hash_type)
+        (BOOST_PP_3CAT(HashTable,hash_size,hash_type) h,
+         BOOST_PP_3CAT(HashValue,hash_size,hash_type)* v){
+    hash_size_type i = BOOST_PP_3CAT(hash_find_index,hash_size, hash_type)(h,v);
+    BOOST_PP_3CAT(HashValue,hash_size,hash_type)* t = &h[i];
+    h[i] = 0;
+    return t;
 }
 
-inline bool TEMPLATE(negative, T)(const T& a){
-    return a<= -epsilon;
-}
+/* PSEUDOCODE
+ *  do not run until every function is defined
 
-inline bool TEMPLATE(positive, T)(const T& a){
-    return a>= epsilon;
-}
+//Good for Atmel FPGA chips, not so good for GPUs
+void kernel tiny_NNs_step(local int* activation_strengths,
+                          local int* activations,
+                          local int* connections,
+                          local HashMap connection_strengths,
+                          local int num_neurons)
+{
 
-//todo: I think I'm going to just replace these structs with pure functions
-struct TEMPLATE(DistanceToZero, T){
-    typedef T argument_type;
-    typedef T result_type;
-
-    //todo: if this doesn't work well, use abs, labs, llabs, imaxabs, fabs, fabsf, and fabsl
-    //todo: use this to have structs with functions: http://stackoverflow.com/a/17052566/782170
-    inline T get(const T& x) const{
-        return x >= 0 ? x : -x;
+ //work item should only do part of work.
+    for(int n=0; n<num_neurons; ++n){
+        if(activations[n]>activation_strengths[n]){
+            for(k=0; k<connections_per_neuron; ++k){
+                int con = get_connection(connections[n], k);
+                int con_str=connection_strengths(n, con);
+                activations[con]+=con_str;
+            }
+        }
     }
 }
 
-//TEMPLATE(DistanceToZero, uint).get= (const uint &x) const { return x; }
+void kernel nn_step(
+                    //global is kept in memory as kernel argument through clenqueuendrangekernel until it is dequeued
+                    //remove const if you want to edit nn in place
+                    //for not, nn will be edited on cpu side for simplicity
+                    //later, it will optionally be edited on gpu side for fast learning
 
-//todo: when distance to zero is actually tested, create positive version, or version that tests for unsigned
+                    global const SerializedCluster* clusters,
+                    global const int* cluster_groups,
+                    global const int* cluster_connections,
+                    global const HashMap    cluster_connection_strengths,
+                    global const SerializedNN* networks,
 
-inline T TEMPLATE(DistanceToOne, T)(const T& x) const{
-    return x > (T) 1 ? x - (T) 1 : (T) 1 - x;
+                    global int* input;//give neurons 1 to n additional activation equal to input, can include cache-in
+                    global int* output;//take activation of neurons n+1 to m as output, can include cache-out
+                    global int* cache;//give neurons m+1 to k prev cycle's cache out, and record k+1 to l as this cycle's
+                    //cache. use l+1 to t as
+                    )
+{
+
+
+
+    local int* network_groups;
+    local int* network_connections;
+    local HashMap network_connection_strengths;
+
+    uint global_id = get_global_id(0);
+
+    //quick inline deserialization
+    // work item only serializes partial (LocalMemoryExample)
+    deserializeCluster(clusters[cluster_groups[global_id] ],
+            network_groups,
+            network_connections,
+            network_connection_strengths);
+
+    private int* activation_strengths;
+    private int* connections;
+    private HashMap connection_strengths;//if not in map, str is 1
+    private int num_neurons;
+
+    uint local_id = get_local_id(0);
+
+    //quick inline deserialization
+    deserializeNN(networks[network_groups[local_id] ],
+            activation_strengths,
+            connections,
+            connection_strengths,
+            num_neurons);
+
+    local int[lcache_size] lcache;
+    private int[pcache_size] pcache;
+
+    for(int i=0; i<lcache_size; ++i){//unroll?
+        for(int j=0; j<pcache_size; ++j){
+            for(int n=0; n<num_neurons; ++n){
+                if(activations[n]>activation_strengths[n]){
+                    for(k=0; k<connections_per_neuron; ++k){
+                        int con = get_connection(connections[n], k);
+                        int con_str=connection_strengths(n, con);
+                        activations[con]+=con_str;
+                    }
+                }
+            }
+        }
+    }
+
 }
-
-inline bool TEMPLATE(IsNearlyZero, T)(const T& x) const{
-    return TEMPLATE(DistanceToZero, T)(x) <= epsilon;
-}
-
-//todo: check if we have default params in c
-inline bool TEMPLATE(NearlyZero)(const T &a, const T& e = epsilon){
-    return a >= -e && a <= e;
-}
-
-inline bool TEMPLATE(NearlyEqual, T)(const T& a, const T& b, const T& e=epsilon){
-    return TEMPLATE(NearlyZero, T)((b-a), e);
-}
-
-//returns x%m, but keeps value positive
-inline integer TEMPLATE(emod, integer)(integer x, integer m){
-    integer r = x % m;
-    if (r<0){ return r+m;}
-    else return r;
-}
-
-//todo: create cl-side and cpu-cl version of IsIncluded function
-//todo: but first we need containers, like vectors or arrays
-//todo: we also need a pair struct
  */
