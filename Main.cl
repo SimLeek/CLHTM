@@ -1,13 +1,6 @@
 
 #include <boost/preprocessor/cat.hpp>
 
-
-
-void kernel simple_add(global const int* A, global const int* B, global int* C)
-{
-C[get_global_id(0)] = A[get_global_id(0)] + B[get_global_id(0)];
-}
-
 //highly divisible numbers (not divisible by 2) for 'randomly' accessing array after collisions.
 #define hash_mask_2 1 //2^1
 #define hash_mask_4 1 //2^2
@@ -42,83 +35,136 @@ C[get_global_id(0)] = A[get_global_id(0)] + B[get_global_id(0)];
 #define hash_mask_2147483648 1743646905 //2^31
 #define hash_mask_4294967296 3645807165 //2^32
 
-#define hash_size 65536
+#define HASH_MASK(HASH_SIZE) BOOST_PP_CAT(hash_mask_,HASH_SIZE)
+
+#define HASH_SIZE 256
 
 //todo: allow hash sizes for other sizes with at least 75% 0's and error if not 75% 0's
 
-#define hash_type int
+#define HASH_TYPE int
 
 #define BOOST_PP_3CAT(a,b,c) BOOST_PP_CAT(a,BOOST_PP_CAT(b,c))
 
+//#include <boost/preprocessor/stringize.hpp>
+//#include <iostream>
+//#define PROBE(A) std::cout << BOOST_PP_STRINGIZE(A) << ": " << A << "\n"
+
 //todo: use boost_pp_div to define a log_2 function and use that to allow boost_pp_less equal to compare values and choose smallest necessary size type
 
-#define hash_size_type size_t
 
-struct BOOST_PP_3CAT(HashValue,hash_size,hash_type) {
-    size_t key1;
-    size_t key2;
-    hash_size_type val;
-};
+#define HASH_SIZE_TYPE size_t
 
-typedef BOOST_PP_3CAT(HashTable,hash_size,hash_type)
-        *BOOST_PP_3CAT(HashValue,hash_size,hash_type);
+typedef struct BOOST_PP_3CAT(HashValueStruct,HASH_SIZE,HASH_TYPE) {
+    HASH_SIZE_TYPE key1;
+    HASH_SIZE_TYPE key2;
+    HASH_TYPE val;
+
+} BOOST_PP_3CAT(HashValue,HASH_SIZE,HASH_TYPE);
+#define HASH_VALUE(HASH_SIZE,HASH_TYPE) BOOST_PP_3CAT(HashValue,HASH_SIZE,HASH_TYPE)
+
+typedef struct BOOST_PP_3CAT(HashTableStruct,HASH_SIZE,HASH_TYPE){
+    HASH_VALUE(HASH_SIZE,HASH_TYPE) table[HASH_SIZE];
+} BOOST_PP_3CAT(HashTable,HASH_SIZE,HASH_TYPE);
+#define HASH_TABLE(HASH_SIZE,HASH_TYPE) BOOST_PP_3CAT(HashTable,HASH_SIZE,HASH_TYPE)
 //todo: test whether making HashTable an array of pointers speeds things up
 //todo: if so, define differently, so local versions take advantage of that only
 
 //template stuff here
-inline void BOOST_PP_3CAT(make_hash_table,hash_size, hash_type)
-        (BOOST_PP_3CAT(HashTable,hash_size,hash_type) h){
-    h = malloc(hash_size*sizeof(*h));
-    memset(&h[0], 0, sizeof(h));
-}
-
-inline void  BOOST_PP_3CAT(free_hash_table,hash_size, hash_type)
-        (BOOST_PP_3CAT(HashTable,hash_size,hash_type) h){
-    free(h);
-}
-
-inline size_t BOOST_PP_3CAT(hash_find_index,hash_size, hash_type)
-        (BOOST_PP_3CAT(HashTable,hash_size,hash_type) h,
-         BOOST_PP_3CAT(HashValue,hash_size,hash_type)* v){
-    hash_size_type size_masker = (hash_size-1);
-    hash_size_type i= (v->key1 ^ v->key2) & size_masker; //a xor b
-    while(h[i]!=0){
-        hash_size_type n = (i >> 1) ^ hash_mask_hash_size;
+inline size_t BOOST_PP_3CAT(hash_find_unused_index,HASH_SIZE, HASH_TYPE)
+        (HASH_TABLE(HASH_SIZE,HASH_TYPE)* h,
+         HASH_VALUE(HASH_SIZE,HASH_TYPE)* v){
+    HASH_SIZE_TYPE size_masker = (HASH_SIZE-1);
+    HASH_SIZE_TYPE i= (v->key1 ^ v->key2) & size_masker; //a xor b
+    while(h->table[i].val!=-1){
+        HASH_SIZE_TYPE n = (i >> 1) ^ HASH_MASK(HASH_SIZE);
         i=(i+n) & size_masker;
     }
     return i;
 }
+#define HASH_FIND_UNUSED_INDEX(HASH_SIZE, HASH_TYPE) BOOST_PP_3CAT(hash_find_unused_index,HASH_SIZE, HASH_TYPE)
 
-void  BOOST_PP_3CAT(insert_hash_table,hash_size, hash_type)
-        (BOOST_PP_3CAT(HashTable,hash_size,hash_type) h,
-         BOOST_PP_3CAT(HashValue,hash_size,hash_type)* v){
-    hash_size_type i = BOOST_PP_3CAT(hash_find_index,hash_size, hash_type)(h,v);
-    h[i] = &v;
+inline size_t BOOST_PP_3CAT(hash_find_used_index,HASH_SIZE, HASH_TYPE)
+        (HASH_TABLE(HASH_SIZE,HASH_TYPE)* h,
+         HASH_VALUE(HASH_SIZE,HASH_TYPE)* v){
+    HASH_SIZE_TYPE size_masker = (HASH_SIZE-1);
+    HASH_SIZE_TYPE i= (v->key1 ^ v->key2) & size_masker; //a xor b
+    int counter=0;
+    while(h->table[i].key1 != v->key1 || h->table[i].key2 != v->key2){
+        counter++;
+        HASH_SIZE_TYPE n = (i >> 1) ^ HASH_MASK(HASH_SIZE);
+        i=(i+n) & size_masker;
+        if(counter>=10) return i;
+    }
+    return i;
 }
+#define HASH_FIND_USED_INDEX(HASH_SIZE, HASH_TYPE) BOOST_PP_3CAT(hash_find_used_index,HASH_SIZE, HASH_TYPE)
 
-void  BOOST_PP_3CAT(remove_hash_table,hash_size, hash_type)
-        (BOOST_PP_3CAT(HashTable,hash_size,hash_type) h,
-         BOOST_PP_3CAT(HashValue,hash_size,hash_type)* v){
-    hash_size_type i = BOOST_PP_3CAT(hash_find_index,hash_size, hash_type)(h,v);
-    h[i] = 0;
+
+void  BOOST_PP_3CAT(insert_hash_table,HASH_SIZE, HASH_TYPE)
+        (HASH_TABLE(HASH_SIZE,HASH_TYPE)* h,
+         HASH_VALUE(HASH_SIZE,HASH_TYPE)* v){
+    HASH_SIZE_TYPE i = HASH_FIND_UNUSED_INDEX(HASH_SIZE, HASH_TYPE)(h,v);
+    h->table[i] = *v;
+
 }
+#define HASH_TABLE_INSERT(HASH_SIZE, HASH_TYPE) BOOST_PP_3CAT(insert_hash_table,HASH_SIZE, HASH_TYPE)
 
-BOOST_PP_3CAT(HashValue,hash_size,hash_type)*
-    BOOST_PP_3CAT(get_hash_table,hash_size, hash_type)
-        (BOOST_PP_3CAT(HashTable,hash_size,hash_type) h,
-         BOOST_PP_3CAT(HashValue,hash_size,hash_type)* v){
-    hash_size_type i = BOOST_PP_3CAT(hash_find_index,hash_size, hash_type)(h,v);
-    return &h[i];
+void  BOOST_PP_3CAT(remove_hash_table,HASH_SIZE, HASH_TYPE)
+        (HASH_TABLE(HASH_SIZE,HASH_TYPE)* h,
+         HASH_VALUE(HASH_SIZE,HASH_TYPE)* v){
+    HASH_SIZE_TYPE i = HASH_FIND_USED_INDEX(HASH_SIZE, HASH_TYPE)(h,v);
+    h->table[i].key1 = -1;
+    h->table[i].key2 = -1;
+    h->table[i].val = -1;
 }
+#define HASH_TABLE_REMOVE(HASH_SIZE, HASH_TYPE) BOOST_PP_3CAT(remove_hash_table,HASH_SIZE, HASH_TYPE)
 
-BOOST_PP_3CAT(HashValue,hash_size,hash_type)*
-BOOST_PP_3CAT(pop_hash_table,hash_size, hash_type)
-        (BOOST_PP_3CAT(HashTable,hash_size,hash_type) h,
-         BOOST_PP_3CAT(HashValue,hash_size,hash_type)* v){
-    hash_size_type i = BOOST_PP_3CAT(hash_find_index,hash_size, hash_type)(h,v);
-    BOOST_PP_3CAT(HashValue,hash_size,hash_type)* t = &h[i];
-    h[i] = 0;
+BOOST_PP_3CAT(HashValue,HASH_SIZE,HASH_TYPE)*
+BOOST_PP_3CAT(get_hash_table,HASH_SIZE, HASH_TYPE)
+        (HASH_TABLE(HASH_SIZE,HASH_TYPE)* h,
+         HASH_VALUE(HASH_SIZE,HASH_TYPE)* v){
+    HASH_SIZE_TYPE i = HASH_FIND_USED_INDEX(HASH_SIZE, HASH_TYPE)(h,v);
+    return &(h->table[i]);
+}
+#define HASH_TABLE_GET(HASH_SIZE, HASH_TYPE) BOOST_PP_3CAT(get_hash_table,HASH_SIZE, HASH_TYPE)
+
+BOOST_PP_3CAT(HashValue,HASH_SIZE,HASH_TYPE)*
+BOOST_PP_3CAT(pop_hash_table,HASH_SIZE, HASH_TYPE)
+        (HASH_TABLE(HASH_SIZE,HASH_TYPE)* h,
+         HASH_VALUE(HASH_SIZE,HASH_TYPE)* v){
+    HASH_SIZE_TYPE i = HASH_FIND_USED_INDEX(HASH_SIZE, HASH_TYPE)(h,v);
+    HASH_VALUE(HASH_SIZE,HASH_TYPE)* t = &(h->table[i]);
+    h->table[i].key1 = -1;
+    h->table[i].key2 = -1;
+    h->table[i].val = -1;
     return t;
+}
+#define HASH_TABLE_POP(HASH_SIZE, HASH_TYPE) BOOST_PP_3CAT(pop_hash_table,HASH_SIZE, HASH_TYPE)
+void kernel simple_add(global const int* A, global const int* B, global int* C)
+{
+HASH_TABLE(HASH_SIZE,HASH_TYPE) hashy;
+for(int i=0; i<256; ++i){
+    hashy.table[i].key1=-1;
+    hashy.table[i].key2=-1;
+    hashy.table[i].val=-1;
+}
+
+HASH_VALUE(HASH_SIZE,HASH_TYPE) hish;
+hish.key1 = A[get_global_id(0)];
+hish.key2 = B[get_global_id(0)];
+
+int D = A[get_global_id(0)] + B[get_global_id(0)];
+
+hish.val = D;
+
+HASH_TABLE_INSERT(HASH_SIZE, HASH_TYPE)(&hashy, &hish);
+
+HASH_VALUE(HASH_SIZE,HASH_TYPE) hosh;
+hosh.key1 = A[get_global_id(0)];
+hosh.key2 = B[get_global_id(0)];
+
+C[get_global_id(0)] = (HASH_TABLE_GET(HASH_SIZE, HASH_TYPE)(&hashy, &hosh))->val;
+
 }
 
 /* PSEUDOCODE
