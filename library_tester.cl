@@ -2,7 +2,11 @@
 #define HASH_TYPE int
 #include "CLCTL/xy_hash_map.cl"
 
-#define NUMBER_TYPE int
+#include <boost/preprocessor/stringize.hpp>
+
+#define NUMBER_TYPE unsigned long
+#define NUMBER_TYPE_ID
+//todo: use boost preprocessor to concatenate multiple word types
 #include "CLCTL/random.cl"
 
 /**
@@ -37,7 +41,8 @@ C[get_global_id(0)] = hosh.val;
 
 }
 
-void kernel random_number_generator_test(global const int* A, global const int* seed){
+//todo: use #ifdef NUMBER_TYPE here to support templated multiple-numeric-type testing
+void kernel random_number_generator_test(NUMBER_TYPE seed, global NUMBER_TYPE* A){
     size_t globalID = get_global_id(0)*get_local_id(0)+get_local_id(0);
-    A[globalID] = JAVA_RANDOM(NUMBER_TYPE)(seed,globalID);
+    A[globalID] = JAVA_RANDOM(NUMBER_TYPE)(&seed,globalID);
 }

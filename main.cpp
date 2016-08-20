@@ -4,13 +4,17 @@
 #include <iostream>
 #include <string>
 #include <iterator>
+#include <cmath>
 
 #define VERBOSE
 #ifdef VERBOSE
+    #include <boost/preprocessor/stringize.hpp>
+    #define PROBE(A) std::cout << BOOST_PP_STRINGIZE(A) << ": " << A << "\n"
 template<class T>
 inline void verbose(T& msg){std::cout<<msg;}
 #else
-#define verbose(msg)
+    #define PROBE(A)
+    #define verbose(A)
 #endif
 
 namespace cl {
@@ -200,7 +204,7 @@ std::string readFile(std::string fileName)
 
 class XYHashTester{
 public:
-    TestProgram()
+    XYHashTester()
     {
         A= new int[10];
         B= new int[10];
@@ -228,7 +232,7 @@ public:
         queue.enqueueWriteBuffer(buffer_A, CL_TRUE, 0, sizeof(int) * size, A);
         queue.enqueueWriteBuffer(buffer_B, CL_TRUE, 0, sizeof(int) * size, B);
 
-        kernel = cl::Kernel(program, "simple_add");//todo:template name or other
+        kernel = cl::Kernel(program, "hash_add_test");//todo:template name or other
 
         kernel.setArg(0, buffer_A);
         kernel.setArg(1, buffer_B);
@@ -268,6 +272,92 @@ protected:
     cl::Kernel kernel;
 };
 
+//todo: make 'templated' to test different numeric types using the -D compiler option.
+class JavaRandomTester{
+public:
+    JavaRandomTester():
+            random_seed(5738495546584)
+    {
+    }
+
+    void ready_buffer(cl::Context& context){
+        buffer_random_results=cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(cl_ulong)*num_results);
+    }
+
+    void ready_kernel(cl::Program& program){
+        verbose("setting kernel to rng\n");
+        kernel=cl::Kernel(program, "random_number_generator_test");
+
+        verbose("setting kernel random seed\n");
+        PROBE(random_seed);
+        kernel.setArg(0,random_seed);
+        verbose("setting kernel buffer\n");
+        kernel.setArg(1,buffer_random_results);
+        verbose("finished setting stuff\n");
+    }
+
+    void ready_queue(cl::Device& device, cl::CommandQueue& queue, cl::Event& e) {
+        /*std::vector<size_t> work_item_sizes;
+        cl_device_info info = CL_DEVICE_MAX_WORK_ITEM_SIZES;
+        cl_int err = device.getInfo(info, &work_item_sizes);
+        std::cout << "work item sizes 0: " << work_item_sizes[0] << "\n";
+        std::cout << "work item sizes 1: " << work_item_sizes[1] << "\n";
+
+        size_t x_size = work_item_sizes[0];
+        size_t y_size = work_item_sizes[0];
+
+        info = CL_DEVICE_MAX_WORK_GROUP_SIZE;
+        size_t work_group_size;
+        err = device.getInfo(info, &work_group_size);
+        std::cout << "work group size:" << work_group_size << "\n";
+
+        x_size = (sqrt(work_group_size) < x_size) ? (size_t) sqrt(work_group_size) : x_size;
+        y_size = (sqrt(work_group_size) < y_size) ? (size_t) sqrt(work_group_size) : y_size;
+
+        try {
+            queue.enqueueNDRangeKernel(kernel,
+                                       cl::NullRange,
+                                       cl::NDRange(num_results / work_group_size),
+                                       cl::NDRange(work_group_size),
+                                       0,
+                                       &e
+            );
+        } catch (cl::Error e) {
+            std::cout << "Error: " << cl::getErrorString(e.err()) << ";" << e.what() << "\n";
+            throw(e);
+        }*/
+
+        try {
+            queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(num_results), cl::NullRange, 0, &e);
+        }catch(cl::Error e) {
+            std::cout<<"Error: "<<cl::getErrorString(e.err())<<";"<<e.what()<<"\n";
+            return;
+        }
+    }
+
+    void read_output(cl::CommandQueue& queue){
+        verbose("Enqueing Read Buffer...");
+        try {
+            queue.enqueueReadBuffer(buffer_random_results, CL_TRUE, 0, sizeof(cl_ulong)*num_results, random_results);
+        }catch(cl::Error e) {
+            std::cout<<"Error: "<<cl::getErrorString(e.err())<<";"<<e.what()<<"\n";
+            throw(e);
+        }
+
+        std::cout<<"Random results: \n";
+        for(int i=0; i<num_results; ++i){
+            std::cout<<random_results[i]<<"\n";
+        }
+    }
+
+private:
+    cl_ulong random_seed;
+    static const size_t num_results = 300;
+    cl::Buffer buffer_random_results;
+    cl_ulong random_results[num_results];
+    cl::Kernel kernel;
+};
+
 int main(int arg, char* args[])
 {
     //CREATE OPENCL CONTEXT
@@ -293,23 +383,11 @@ int main(int arg, char* args[])
 
     cl::Context context(device);
 
-    //READY ITEMS FOR SENDING TO CL
-    verbose("creating program class...\n");
-    TestProgram prog;
-    verbose("readying buffer for program class...\n");
-    prog.ready_buffer(context);
-
-    /*cl::Buffer buffer_A(context, CL_MEM_READ_WRITE, sizeof(int) * size);
-    cl::Buffer buffer_B(context, CL_MEM_READ_WRITE, sizeof(int) * size);
-    cl::Buffer buffer_C(context, CL_MEM_READ_WRITE, sizeof(int) * size);*/
-
-
-
     //OPEN CL FILE AND COMPILE
     cl::Program::Sources sources;
     verbose("Reading cl file into string...\n");
 
-    std::string kernel_code = readFile("Main.cl");
+    std::string kernel_code = readFile("library_tester.cl");
 
     sources.push_back({ kernel_code.c_str(),kernel_code.length() });
 
@@ -338,40 +416,33 @@ int main(int arg, char* args[])
     //Create command queue using our OpenCL context and device
     cl::CommandQueue queue(context, device, NULL, NULL);
 
-    prog.ready_kernel(program, queue);
+    //XYHashTest
+    verbose("creating XYHashTester class...\n");
+    XYHashTester xy_test;
+    verbose("readying buffer for XYHashTester class...\n");
+    xy_test.ready_buffer(context);
+    verbose("readying kernel for XYHashTester class...\n");
+    xy_test.ready_kernel(program, queue);
 
-    /*queue.enqueueWriteBuffer(buffer_A, CL_TRUE, 0, sizeof(int) * size, A);
-    queue.enqueueWriteBuffer(buffer_B, CL_TRUE, 0, sizeof(int) * size, B);
-
-
-    cl::Kernel simple_add(program, "simple_add");
-
-    simple_add.setArg(0, buffer_A);
-    simple_add.setArg(1, buffer_B);
-    simple_add.setArg(2, buffer_C);*/
-
-//Make sure that our queue is done with all of its tasks before continuing
     queue.finish();
-
-    //Create an event that we can use to wait for our program to finish running
     cl::Event e;
-//This runs our program, the ranges here are the offset, global, local ranges that our code runs in.
-    prog.ready_queue(queue, e);
-
-//Waits for our program to finish
+    xy_test.ready_queue(queue, e);
     e.wait();
-//Reads the output written to our buffer into our final array
+    xy_test.read_output(queue);
 
-    prog.read_output(queue);
-
-    /*queue.enqueueReadBuffer(buffer_C, CL_TRUE, 0, sizeof(int) * size, C);
-
-//prints the array
-    std::cout << "Result:" << std::endl;
-    for (int i = 0; i < size; i++)
-    {
-        std::cout << A[i] << " + " << B[i] << " = " << C[i] << std::endl;
-    }*/
+    //JavaRandomTest
+    verbose("creating JavaRandomTester class...\n");
+    JavaRandomTester java_rand_test;
+    verbose("readying buffer for JavaRandomTester class...\n");
+    java_rand_test.ready_buffer(context);
+    verbose("readying kernel for JavaRandomTester class...\n");
+    java_rand_test.ready_kernel(program);
+    verbose("kernel is readied.");
+    queue.finish();
+    //cl::Event e;
+    java_rand_test.ready_queue(device, queue, e);
+    e.wait();
+    java_rand_test.read_output(queue);
 
     return 0;
 }
