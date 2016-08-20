@@ -1,35 +1,5 @@
 
-#define HASH_SIZE 256
-#define HASH_TYPE int
-#include "cl_hash_map.cl"
 
-void kernel simple_add(global const int* A, global const int* B, global int* C)
-{
-XY_HASH_TABLE(HASH_SIZE,HASH_TYPE) hashy;
-for(int i=0; i<256; ++i){
-    hashy.table[i].key1=-1;
-    hashy.table[i].key2=-1;
-    hashy.table[i].val=-1;
-}
-
-XY_HASH_VALUE(HASH_SIZE,HASH_TYPE) hish;
-hish.key1 = A[get_global_id(0)];
-hish.key2 = B[get_global_id(0)];
-
-int D = A[get_global_id(0)] + B[get_global_id(0)];
-
-hish.val = D;
-
-XY_HASH_TABLE_INSERT(HASH_SIZE, HASH_TYPE)(&hashy, &hish);
-
-XY_HASH_VALUE(HASH_SIZE,HASH_TYPE) hosh;
-hosh.key1 = A[get_global_id(0)];
-hosh.key2 = B[get_global_id(0)];
-XY_HASH_TABLE_GET(HASH_SIZE, HASH_TYPE)(&hashy, &hosh);
-
-C[get_global_id(0)] = hosh.val;
-
-}
 
 /* PSEUDOCODE
  *  do not run until every function is defined

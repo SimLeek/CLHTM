@@ -198,7 +198,7 @@ std::string readFile(std::string fileName)
 }
 
 
-class TestProgram{
+class XYHashTester{
 public:
     TestProgram()
     {

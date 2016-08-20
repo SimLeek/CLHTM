@@ -45,6 +45,8 @@
 #define hash_mask_2147483648 1743646905 //2^31
 #define hash_mask_4294967296 3645807165 //2^32
 
+//todo: create preprocessor algorithm that generates odd composite numbers < chosen size.
+
 #define HASH_MASK(HASH_SIZE) BOOST_PP_CAT(hash_mask_,HASH_SIZE)
 
 //todo: allow hash sizes for other sizes with at least 75% 0's and error if not 75% 0's
