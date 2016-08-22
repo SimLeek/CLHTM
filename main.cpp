@@ -276,12 +276,12 @@ protected:
 class JavaRandomTester{
 public:
     JavaRandomTester():
-            random_seed(5738495546584)
+            random_seed(573849584)
     {
     }
 
     void ready_buffer(cl::Context& context){
-        buffer_random_results=cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(cl_ulong)*num_results);
+        buffer_random_results=cl::Buffer(context, CL_MEM_READ_ONLY, sizeof(int)*num_results);
     }
 
     void ready_kernel(cl::Program& program){
@@ -297,7 +297,7 @@ public:
     }
 
     void ready_queue(cl::Device& device, cl::CommandQueue& queue, cl::Event& e) {
-        /*std::vector<size_t> work_item_sizes;
+        std::vector<size_t> work_item_sizes;
         cl_device_info info = CL_DEVICE_MAX_WORK_ITEM_SIZES;
         cl_int err = device.getInfo(info, &work_item_sizes);
         std::cout << "work item sizes 0: " << work_item_sizes[0] << "\n";
@@ -317,32 +317,29 @@ public:
         try {
             queue.enqueueNDRangeKernel(kernel,
                                        cl::NullRange,
-                                       cl::NDRange(num_results / work_group_size),
-                                       cl::NDRange(work_group_size),
+                                       cl::NDRange(num_results),
+                                       cl::NullRange,
                                        0,
                                        &e
             );
         } catch (cl::Error e) {
             std::cout << "Error: " << cl::getErrorString(e.err()) << ";" << e.what() << "\n";
             throw(e);
-        }*/
-
-        try {
-            queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(num_results), cl::NullRange, 0, &e);
-        }catch(cl::Error e) {
-            std::cout<<"Error: "<<cl::getErrorString(e.err())<<";"<<e.what()<<"\n";
-            return;
         }
+
     }
 
-    void read_output(cl::CommandQueue& queue){
+    void read_output(cl::CommandQueue& queue, cl::Event& e){
+
         verbose("Enqueing Read Buffer...");
         try {
-            queue.enqueueReadBuffer(buffer_random_results, CL_TRUE, 0, sizeof(cl_ulong)*num_results, random_results);
+            queue.enqueueReadBuffer(buffer_random_results, CL_TRUE, 0, sizeof(int)*num_results, random_results, NULL, &e);
         }catch(cl::Error e) {
             std::cout<<"Error: "<<cl::getErrorString(e.err())<<";"<<e.what()<<"\n";
             throw(e);
         }
+
+        e.wait();
 
         std::cout<<"Random results: \n";
         for(int i=0; i<num_results; ++i){
@@ -351,10 +348,10 @@ public:
     }
 
 private:
-    cl_ulong random_seed;
+    int random_seed;
     static const size_t num_results = 300;
     cl::Buffer buffer_random_results;
-    cl_ulong random_results[num_results];
+    int random_results[num_results];
     cl::Kernel kernel;
 };
 
@@ -442,7 +439,7 @@ int main(int arg, char* args[])
     //cl::Event e;
     java_rand_test.ready_queue(device, queue, e);
     e.wait();
-    java_rand_test.read_output(queue);
+    java_rand_test.read_output(queue, e);
 
     return 0;
 }
