@@ -42,7 +42,7 @@ C[get_global_id(0)] = hosh.val;
 
 //todo: use #ifdef NUMBER_TYPE here to support templated multiple-numeric-type testing
 void kernel random_number_generator_test(NUMBER_TYPE seed, global NUMBER_TYPE* A){
-    NUMBER_TYPE globalID = get_global_id(0)*get_local_id(0)+get_local_id(0);
-    //A[globalID] = JAVA_RANDOM(NUMBER_TYPE)(&seed,globalID);
-    A[globalID] = get_work_dim();
+    //NUMBER_TYPE globalID = get_global_id(0)*get_local_id(0)+get_local_id(0);
+    A[get_global_id(0)] = JAVA_RANDOM(NUMBER_TYPE)(&seed,get_global_id(0));
+    //A[get_global_id(0)] = get_global_id(0);
 }
